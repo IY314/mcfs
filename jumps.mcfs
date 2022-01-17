@@ -1,10 +1,10 @@
-define setsc set score
-define getsc get score
+define setsc score set
+define getsc score get
 
 as @a
     at @s
-        if [getsc @s.jumps == 1]
-            chat @s "You Jumped"
+        if [getsc @s.jumps = 1]
+            chat @s ("You Jumped")
         end
     end
 end
