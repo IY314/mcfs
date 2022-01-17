@@ -1,6 +1,7 @@
 import sys
 import string
 import json
+import re
 from dataclasses import dataclass
 
 
@@ -68,9 +69,7 @@ class MCFSError:
     def __repr__(self):
         result = f'{self.error_name}: {self.details}\n'
         result += f'File {self.pos_start.fn}, line {self.pos_start.ln + 1}'
-        result += '\n\n' + \
-            string_with_arrows(self.pos_start.ftxt,
-                               self.pos_start, self.pos_end)
+        result += '\n\n' + string_with_arrows(self.pos_start.ftxt, self.pos_start, self.pos_end)
         return result
 
 
@@ -104,14 +103,6 @@ KEYWORDS = [
     'end'
 ]
 
-SELECTORS = [
-    '@e',
-    '@a',
-    '@p',
-    '@r',
-    '@s'
-]
-
 
 class Token:
     def __init__(self, type_, value=None, pos_start=None, pos_end=None):
@@ -141,8 +132,7 @@ class Lexer:
 
     def advance(self):
         self.pos.advance()
-        self.current_char = self.text[self.pos.idx] if self.pos.idx < len(
-            self.text) else None
+        self.current_char = self.text[self.pos.idx] if self.pos.idx < len(self.text) else None
 
     def make_tokens(self):
         tokens = []
@@ -163,7 +153,10 @@ class Lexer:
                     return [], result
                 tokens.append(result)
             elif self.current_char == '(':
-                tokens.append(self.make_json())
+                result = self.make_json()
+                if isinstance(result, MCFSError):
+                    return [], result
+                tokens.append(result)
             elif self.current_char == '=':
                 tokens.append(Token(TT_EQ, pos_start=self.pos))
                 self.advance()
@@ -235,7 +228,12 @@ class Lexer:
 
         self.advance()
 
-        return Token(TT_JSON, json.loads(result), pos_start, self.pos)
+        if not result:
+            return MCFSError(pos_start, self.pos, 'Invalid JSON', 'Expected JSON value')
+
+        p = re.compile(r'(\"(.*?)\"|(\w+))(\s*:\s*(\".*?\"|.))')
+
+        return Token(TT_JSON, json.loads(p.sub(r'"\2\3"\4', result)), pos_start, self.pos)
 
     def make_sel(self):
         result = ''
